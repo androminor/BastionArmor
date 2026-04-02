@@ -7,7 +7,6 @@ import javax.inject.Inject
 
 class UpdateGameUseCase @Inject constructor() {
     operator fun invoke(state: GameState, gameBoard: GameBoard, deltaTime: Float, currentTime: Long): GameState {
-        // Only update if playing
         if (state.gameStatus != GameStatus.PLAYING) {
             return state
         }
@@ -16,12 +15,12 @@ class UpdateGameUseCase @Inject constructor() {
         var playerLives = state.playerLives
         var score = state.score
 
-        // 1. Move existing enemies
+        // 1. Move enemies
         val movedEnemies = state.enemies.map { enemy ->
             enemy.moveAlongPath(gameBoard.path, deltaTime * state.gameSpeed)
         }
 
-        // 2. Filter out enemies that reached the end and decrement lives
+        // 2. Filter enemies that reached the end
         val pathSize = gameBoard.path.size
         val activeEnemies = movedEnemies.filter { enemy ->
             if (enemy.pathIndex >= pathSize - 1) {
@@ -35,20 +34,17 @@ class UpdateGameUseCase @Inject constructor() {
         // 3. Tower Logic: Shooting
         val updatedTowers = state.towers.map { tower ->
             var updatedTower = tower
-            
-            // Check if tower is operational and off cooldown
-            if (tower.isOperational() && currentTime - tower.lastShotTime >= tower.fireRate) {
-                // Find target in range
+            if (tower.isOperational() && tower.canShoot(currentTime)) {
+                // Find first target in range
                 val target = activeEnemies.firstOrNull { enemy ->
                     tower.position.distanceTo(enemy.position) <= tower.range
                 }
 
                 if (target != null) {
-                    // Deal damage to target
                     val index = activeEnemies.indexOfFirst { it.id == target.id }
                     if (index != -1) {
                         val damagedEnemy = activeEnemies[index].takeDamage(tower.damage)
-                        if (damagedEnemy.health <= 0) {
+                        if (!damagedEnemy.isAlive) {
                             activeEnemies.removeAt(index)
                             playerGold += target.reward
                             score += target.reward
@@ -56,19 +52,18 @@ class UpdateGameUseCase @Inject constructor() {
                             activeEnemies[index] = damagedEnemy
                         }
                     }
-                    // Update tower last shot time and target position for visuals
                     updatedTower = tower.copy(
                         lastShotTime = currentTime,
                         lastShotTargetPos = target.position
                     )
                 } else {
-                    // No target, clear visual target after a short delay
+                    // No target found, check if we should clear the visual beam
                     if (currentTime - tower.lastShotTime > 150) {
                         updatedTower = tower.copy(lastShotTargetPos = null)
                     }
                 }
             } else {
-                // Tower is cooling down, clear visual target after a short delay
+                // Cooling down, check if we should clear the visual beam
                 if (currentTime - tower.lastShotTime > 150) {
                     updatedTower = tower.copy(lastShotTargetPos = null)
                 }
@@ -76,19 +71,19 @@ class UpdateGameUseCase @Inject constructor() {
             updatedTower
         }
 
-        // 4. Update Game Status and Wave Progression
+        // 4. Status and Wave Transition
         var currentWave = state.currentWave
-        val nextStatus = when {
-            playerLives <= 0 -> GameStatus.GAME_OVER
-            activeEnemies.isEmpty() -> {
-                if (currentWave < 3) {
-                    currentWave += 1 // Increment wave for next start
-                    GameStatus.WAVE_COMPLETE
-                } else {
-                    GameStatus.VICTORY
-                }
+        var nextStatus = GameStatus.PLAYING
+
+        if (activeEnemies.isEmpty()) {
+            if (currentWave >= 3) {
+                nextStatus = GameStatus.VICTORY
+            } else {
+                nextStatus = GameStatus.WAVE_COMPLETE
+                currentWave += 1 // Increment wave for the next start
             }
-            else -> GameStatus.PLAYING
+        } else if (playerLives <= 0) {
+            nextStatus = GameStatus.GAME_OVER
         }
 
         return state.copy(

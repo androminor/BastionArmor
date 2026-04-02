@@ -3,12 +3,36 @@ package com.example.bastionarmor.ui
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -18,13 +42,17 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.bastionarmor.domain.model.*
+import com.example.bastionarmor.domain.model.Enemy
+import com.example.bastionarmor.domain.model.EnemyType
+import com.example.bastionarmor.domain.model.GameBoard
+import com.example.bastionarmor.domain.model.GameStatus
+import com.example.bastionarmor.domain.model.Position
+import com.example.bastionarmor.domain.model.Tower
+import com.example.bastionarmor.domain.model.TowerType
 import com.example.bastionarmor.presentation.GameViewModel
-import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -32,7 +60,6 @@ fun GameScreen(viewModel: GameViewModel = hiltViewModel()) {
     val state by viewModel.gameState.collectAsState()
     val board by viewModel.board.collectAsState()
     
-    // Scale factors to map logical 800x600 to actual screen size
     var scaleX by remember { mutableStateOf(1f) }
     var scaleY by remember { mutableStateOf(1f) }
 
@@ -67,7 +94,6 @@ fun GameScreen(viewModel: GameViewModel = hiltViewModel()) {
                     .weight(1f)
                     .padding(horizontal = 8.dp)
             ) {
-                // Calculate scale based on the available area (logical board is 800x600)
                 scaleX = constraints.maxWidth.toFloat() / 800f
                 scaleY = constraints.maxHeight.toFloat() / 600f
 
@@ -81,17 +107,12 @@ fun GameScreen(viewModel: GameViewModel = hiltViewModel()) {
                             .pointerInput(state.selectedTowerType) {
                                 detectTapGestures { offset ->
                                     if (state.selectedTowerType != null) {
-                                        // Convert tap pixels to logical coordinates
-                                        val logicalPos = Position(
-                                            offset.x / scaleX,
-                                            offset.y / scaleY
-                                        )
+                                        val logicalPos = Position(offset.x / scaleX, offset.y / scaleY)
                                         viewModel.placeTower(state.selectedTowerType!!, logicalPos)
                                     }
                                 }
                             }
                     ) {
-                        // Drawing using logical-to-pixel scaling
                         drawValidTowerZones(board, state.selectedTowerType, scaleX, scaleY)
                         drawPath(board.path, scaleX, scaleY)
                         
@@ -103,7 +124,7 @@ fun GameScreen(viewModel: GameViewModel = hiltViewModel()) {
                             drawEnemy(enemy, scaleX, scaleY)
                         }
 
-                        drawShots(state.towers, state.enemies, scaleX, scaleY)
+                        drawShots(state.towers, scaleX, scaleY)
                     }
                 }
             }
@@ -149,7 +170,7 @@ fun GameScreen(viewModel: GameViewModel = hiltViewModel()) {
                         when (state.gameStatus) {
                             GameStatus.WAITING_TO_START -> "Start Wave ${state.currentWave}"
                             GameStatus.PLAYING -> "Wave in Progress"
-                            GameStatus.WAVE_COMPLETE -> "Start Next Wave"
+                            GameStatus.WAVE_COMPLETE -> "Next Wave Ready"
                             GameStatus.GAME_OVER -> "Game Over"
                             GameStatus.VICTORY -> "Victory!"
                             else -> "Start Wave"
@@ -172,17 +193,10 @@ fun GameScreen(viewModel: GameViewModel = hiltViewModel()) {
 private fun DrawScope.drawValidTowerZones(board: GameBoard, selectedTowerType: TowerType?, scaleX: Float, scaleY: Float) {
     if (selectedTowerType != null) {
         board.getValidTowerZones().forEach { position ->
-            val center = Offset(position.x * scaleX, position.y * scaleY)
             drawCircle(
-                Color.Green.copy(alpha = 0.2f),
+                Color.Green.copy(alpha = 0.15f),
                 radius = 20f * scaleX,
-                center = center
-            )
-            drawCircle(
-                Color.Green.copy(alpha = 0.5f),
-                radius = 20f * scaleX,
-                center = center,
-                style = Stroke(width = 2f)
+                center = Offset(position.x * scaleX, position.y * scaleY)
             )
         }
     }
@@ -192,14 +206,11 @@ private fun DrawScope.drawPath(path: List<Position>, scaleX: Float, scaleY: Floa
     if (path.isEmpty()) return
     for (i in 0 until path.size - 1) {
         drawLine(
-            Color(0xFF45475A),
+            Color(0xFF313244),
             Offset(path[i].x * scaleX, path[i].y * scaleY),
             Offset(path[i+1].x * scaleX, path[i+1].y * scaleY),
-            strokeWidth = 12f * scaleX
+            strokeWidth = 20f * scaleX
         )
-    }
-    path.forEach { pos ->
-        drawCircle(Color(0xFF585B70), radius = 4f * scaleX, center = Offset(pos.x * scaleX, pos.y * scaleY))
     }
 }
 
@@ -211,26 +222,13 @@ private fun DrawScope.drawTower(tower: Tower, showRange: Boolean, scaleX: Float,
         TowerType.THROWING_AXE -> Color(0xFFF38BA8)
     }
     val center = Offset(tower.position.x * scaleX, tower.position.y * scaleY)
-    val radius = 18f * scaleX
-
-    // Range preview
+    
     if (showRange) {
         drawCircle(towerColor.copy(alpha = 0.1f), radius = tower.range * scaleX, center = center)
-        drawCircle(towerColor.copy(alpha = 0.2f), radius = tower.range * scaleX, center = center, style = Stroke(width = 1f))
     }
 
-    // Base
-    drawCircle(color = towerColor, radius = radius, center = center)
-    drawCircle(color = Color.White.copy(alpha = 0.5f), radius = radius, center = center, style = Stroke(width = 2f))
-    
-    // Level indicator (small pips)
-    repeat(tower.level) { i ->
-        drawCircle(
-            Color.White,
-            radius = 3f * scaleX,
-            center = Offset(center.x - radius + (i * 8f * scaleX), center.y + radius + 5f * scaleY)
-        )
-    }
+    drawCircle(color = towerColor, radius = 18f * scaleX, center = center)
+    drawCircle(color = Color.White.copy(alpha = 0.3f), radius = 18f * scaleX, center = center, style = Stroke(width = 2f))
 }
 
 private fun DrawScope.drawEnemy(enemy: Enemy, scaleX: Float, scaleY: Float) {
@@ -249,29 +247,21 @@ private fun DrawScope.drawEnemy(enemy: Enemy, scaleX: Float, scaleY: Float) {
     val hbW = 24f * scaleX
     val hbH = 4f * scaleY
     val healthPct = enemy.health.toFloat() / enemy.maxHealth
-    val hbX = center.x - hbW/2
-    val hbY = center.y - radius - 8f * scaleY
-    
-    drawRect(Color.Red.copy(alpha = 0.5f), Offset(hbX, hbY), Size(hbW, hbH))
-    drawRect(Color.Green, Offset(hbX, hbY), Size(hbW * healthPct, hbH))
+    drawRect(Color.Red, Offset(center.x - hbW/2, center.y - radius - 10f), Size(hbW, hbH))
+    drawRect(Color.Green, Offset(center.x - hbW/2, center.y - radius - 10f), Size(hbW * healthPct, hbH))
 }
 
-private fun DrawScope.drawShots(towers: List<Tower>, enemies: List<Enemy>, scaleX: Float, scaleY: Float) {
+private fun DrawScope.drawShots(towers: List<Tower>, scaleX: Float, scaleY: Float) {
     val currentTime = System.currentTimeMillis()
     towers.forEach { tower ->
-        // Show shots that happened in the last 150ms for persistence
-        if (currentTime - tower.lastShotTime < 150) {
-            val target = enemies.firstOrNull { enemy ->
-                tower.position.distanceTo(enemy.position) <= tower.range + 20f // slight buffer for visuals
-            }
-            if (target != null) {
-                drawLine(
-                    color = Color.Yellow.copy(alpha = 0.7f),
-                    start = Offset(tower.position.x * scaleX, tower.position.y * scaleY),
-                    end = Offset(target.position.x * scaleX, target.position.y * scaleY),
-                    strokeWidth = 3f * scaleX
-                )
-            }
+        val targetPos = tower.lastShotTargetPos
+        if (targetPos != null && currentTime - tower.lastShotTime < 150) {
+            drawLine(
+                color = Color.Yellow,
+                start = Offset(tower.position.x * scaleX, tower.position.y * scaleY),
+                end = Offset(targetPos.x * scaleX, targetPos.y * scaleY),
+                strokeWidth = 4f * scaleX
+            )
         }
     }
 }
@@ -280,33 +270,22 @@ private fun DrawScope.drawShots(towers: List<Tower>, enemies: List<Enemy>, scale
 private fun StatItem(label: String, value: String, color: Color) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(text = label, color = Color.White.copy(alpha = 0.6f), fontSize = 11.sp)
-        Text(text = value, color = color, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
+        Text(text = value, color = color, fontWeight = FontWeight.Bold, fontSize = 15.sp)
     }
 }
 
 @Composable
 private fun TowerButton(type: TowerType, isSelected: Boolean, canAfford: Boolean, onClick: () -> Unit) {
-    val containerColor = when {
-        isSelected -> Color(0xFFCBA6F7)
-        canAfford -> Color(0xFF45475A)
-        else -> Color(0xFF313244)
-    }
-    val contentColor = if (isSelected) Color.Black else if (canAfford) Color.White else Color.White.copy(alpha = 0.4f)
-
+    val color = if (isSelected) Color(0xFFCBA6F7) else if (canAfford) Color(0xFF45475A) else Color(0xFF313244)
     Surface(
         onClick = onClick,
-        shape = RoundedCornerShape(12.dp),
-        color = containerColor,
-        contentColor = contentColor,
-        modifier = Modifier.size(width = 90.dp, height = 70.dp)
+        shape = RoundedCornerShape(8.dp),
+        color = color,
+        modifier = Modifier.size(80.dp, 60.dp)
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-            modifier = Modifier.padding(4.dp)
-        ) {
-            Text(type.displayName, fontSize = 11.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, lineHeight = 12.sp)
-            Text("${type.baseCost}g", fontSize = 10.sp, color = if (canAfford) Color(0xFFF9E2AF) else Color(0xFFF38BA8))
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+            Text(type.displayName, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = if (isSelected) Color.Black else Color.White)
+            Text("${type.baseCost}g", fontSize = 9.sp, color = if (canAfford) Color(0xFFF9E2AF) else Color(0xFFF38BA8))
         }
     }
 }

@@ -14,6 +14,7 @@ data class Tower(
     val fireRate: Long, // milliseconds between shots
     val cost: Int,
     val lastShotTime: Long = 0L,
+    val lastShotTargetPos: Position? = null, // Store position for visualization
     val health: Int,
     val maxHealth: Int = 100
 ) {
@@ -27,11 +28,10 @@ data class Tower(
     }
 
     fun isInRange(enemyPosition: Position): Boolean {
-        val distance = position.distancessTo(enemyPosition)
+        val distance = position.distanceTo(enemyPosition)
         return distance <= range
     }
 
-    // Repair tower to full health and damage
     fun repair(): Pair<Tower, Int> {
         val repairCost = costOfRepair()
         val repairedTower = copy(
@@ -48,14 +48,9 @@ data class Tower(
         return ((1f - averageCondition) * cost * 0.3f).toInt().coerceAtLeast(5)
     }
 
-    /**
-     * Reduces the tower's health when it takes damage from an enemy.
-     * @param damageAmount The amount of damage inflicted by the enemy.
-     * @return A new Tower instance with reduced health.
-     */
     fun takeDamageOnTower(damageAmount: Int): Tower {
         val newHealth = (this.health - damageAmount).coerceAtLeast(0)
-        val newDamage = if (newHealth <= 0) 0 else (this.damage * 0.95f).toInt() // Reduce damage when damaged
+        val newDamage = if (newHealth <= 0) 0 else (this.damage * 0.95f).toInt()
         return this.copy(
             health = newHealth,
             damage = newDamage.coerceAtLeast(0)
@@ -68,7 +63,7 @@ data class Tower(
             damage = damage + (damage * 0.5f).toInt(),
             maxDamage = maxDamage + (maxDamage * 0.5f).toInt(),
             range = range * 1.2f,
-            fireRate = (fireRate * 0.9f).toLong(), // Faster firing
+            fireRate = (fireRate * 0.9f).toLong(),
             cost = cost * 2,
             health = maxHealth,
             maxHealth = (maxHealth * 1.1f).toInt()
@@ -95,45 +90,5 @@ data class Tower(
         val newTypeCost = newType.baseCost
         val upgradeFee = (cost * 0.5f).toInt()
         return (newTypeCost - currentTypeCost).coerceAtLeast(0) + upgradeFee
-    }
-
-    fun getUpgradeOptions(): List<UpgradeOption> {
-        val options = mutableListOf<UpgradeOption>()
-
-        // Level up option
-        if (level < 5) {
-            options.add(
-                UpgradeOption(
-                    UpgradeType.LEVEL_UP,
-                    cost = cost,
-                    description = "Upgrade to Level ${level + 1}\n+50% Damage, +20% Range, +10% Speed"
-                )
-            )
-        }
-
-        // Type swap options
-        TowerType.values().filter { it != type }.forEach { towerType ->
-            options.add(
-                UpgradeOption(
-                    UpgradeType.TYPE_SWAP,
-                    targetType = towerType,
-                    cost = calculateTypeSwapCost(towerType),
-                    description = "Convert to ${towerType.displayName}\n${towerType.baseDamage} DMG, ${towerType.baseRange.toInt()} Range"
-                )
-            )
-        }
-
-        // Repair option
-        if (health < maxHealth || damage < maxDamage) {
-            options.add(
-                UpgradeOption(
-                    UpgradeType.REPAIR,
-                    cost = costOfRepair(),
-                    description = "Repair Tower\nRestore health and damage to maximum"
-                )
-            )
-        }
-
-        return options
     }
 }

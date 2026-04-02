@@ -13,5 +13,6 @@ data class GameStateEntity(
     val towersJson: String,
     val enemiesJson: String,
     val gameStatus: String,
-    val gameSpeed: Float
+    val gameSpeed: Float,
+    val selectedTowerType: String? = null
 )
