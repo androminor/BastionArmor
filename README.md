@@ -58,7 +58,7 @@ If you would like to contribute to this project, please follow these guidelines:
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for more details.
 
 ## Contact
-For any questions or suggestions, please feel free to reach out to me at androminor@example.com.
+For any questions or suggestions, please feel free to reach out to me at singhonmobile@gmail.com.
 
 ---
 Happy Gaming!
